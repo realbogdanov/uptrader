@@ -1,0 +1,14 @@
+{% extends 'menu_tree_app/base.html' %}
+
+{% load menu_tags %}
+
+{% block title %}
+	Menu
+{% endblock %}
+
+{% block body %}
+	<h1>Menu</h1>
+	<div class="menu">
+		{% draw_menu 'main_menu' %}
+	</div>
+{% endblock %}
