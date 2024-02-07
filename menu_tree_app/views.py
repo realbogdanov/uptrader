@@ -5,52 +5,52 @@ from django.shortcuts import render
 from .models import MenuItem
 
 
-def build_menu_tree(menu_items: List[MenuItem]) -> List[MenuItem]:
+def build_menu_tree(
+		items: List[MenuItem],
+		parent_id: int = None,
+		current_url:  str = None,
+		active_items: set = set()) -> List[Dict]:
 	"""
-	Функция для построения древовидной структуры меню из плоского списка элементов меню.
-
-	Args:
-	    menu_items (List[MenuItem]): Список элементов меню из базы данных.
-
-	Returns:
-	    List[MenuItem]: Список верхне уровневых элементов меню, образующих структуру дерева.
+	Метод, который рекурсивно строит древовидную структуру меню.
 	"""
+	tree = []
+	for item in items:
+		if item.parent_id == parent_id:
+			node = {
+				'item': item,
+				'is_current': item.url == current_url,
+				'is_active': item.id in active_items or item.url == current_url,
+				'children': [],
+			}
 
-	# Создаём словарь для быстрого доступа к элементам по их id
-	menu_items_dict: Dict[int, MenuItem] = {}
-	for item in menu_items:
-		menu_items_dict[item.id] = item
+			node['children'] = build_menu_tree(
+				items,
+				parent_id=item.id,
+				current_url=current_url,
+				active_items=active_items
+			)
+			tree.append(node)
 
-	# Инициализация children как пустого списка для каждого элемента.
-	for item in menu_items:
-		item.children = []
-
-	# Список для корневых элементов
-	root_menu_items = []
-	for item in menu_items:
-		if item.parent_id is None:
-			root_menu_items.append(item)
-		else:
-			parent_item = menu_items_dict.get(item.parent_id)
-			if parent_item:
-				parent_item.children.append(item)
-
-	return root_menu_items
+	return tree
 
 
-def menu_view(request: HttpRequest):
-	menu_items = MenuItem.objects.prefetch_related('children').all()
-	menu_tree = build_menu_tree(menu_items)
-
-	# Определение активного пункта меню
+def menu_view(request: HttpRequest) -> HttpResponse:
 	current_url = request.path
+
+	# Получаем все пункты меню и предварительно загружаем дочерние элементы для оптимизации
+	menu_items = MenuItem.objects.prefetch_related('children').order_by('position')
+
+	# Список для активных и видимых пунктов меню
+	active_item_ids = set()
 	for item in menu_items:
-		if current_url == item.url:
-			item.is_active = True
-		else:
-			item.is_active = False
+		if item.is_currently_active(current_url=current_url):
+			active_item_ids.add(item.id)
+			active_item_ids.update([ancestor.id for ancestor in item.get_ancestors()])
+
+	menu_tree = build_menu_tree(list(menu_items), current_url=current_url, active_items=active_item_ids)
 
 	context = {
-		'main_menu': menu_tree
+		'main_menu': menu_tree,
 	}
+
 	return render(request, 'menu_tree_app/menu.html', context=context)

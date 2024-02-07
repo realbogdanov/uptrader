@@ -5,7 +5,7 @@ from .models import MenuItem
 
 class MenuItemAdmin(admin.ModelAdmin):
 	"""
-	Административный интерфейс для управления элементами меню.
+	Класс представляющий административный интерфейс для управления элементами меню.
 
 	Attributes:
 	    list_display (list): Определяет поля, отображаемые в списке элементов в административной панели.
@@ -16,16 +16,25 @@ class MenuItemAdmin(admin.ModelAdmin):
 
 	"""
 
-	list_display = ['name', 'url', 'position', 'is_active', 'parent',]
+	list_display = ['name', 'url', 'position', 'is_active', 'parent', 'menu_name',]
 	list_filter = ['is_active', 'parent',]
 	search_fields = ['name', 'url',]
 
 	def parent_name(self, obj: MenuItem) -> str:
+		"""
+		Возвращает имя родительского элемента, если он существует.
+
+		Args:
+		    obj (MenuItem): Элемент меню.
+
+		Returns:
+		    str: Имя родительского элемента.
+		"""
 		return obj.parent.name if obj.parent else None
 	parent_name.short_description = 'Parent'
 
 	# Настройка формы редактирования
-	fields = ['name', 'url', 'position', 'is_active', 'icon', 'parent',]
+	fields = ['name', 'url', 'position', 'is_active', 'icon', 'parent', 'menu_name',]
 	raw_id_fields = ['parent',]
 
 

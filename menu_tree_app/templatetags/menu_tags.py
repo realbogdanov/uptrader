@@ -1,38 +1,50 @@
+from typing import List, Dict
+
 from django import template
-from django.utils.html import mark_safe
-from ..models import MenuItem
+from django.utils.html import format_html
+from django.utils.safestring import mark_safe
 
 register = template.Library()
 
 
 @register.simple_tag
-def draw_menu(menu_name: str):
+def draw_menu(menu_tree: List) -> str:
 	"""
-	Template tag для отрисовки древовидного меню.
+	Отрисовывает меню на основе предоставленной структуры дерева.
 
 	Args:
-	    menu_name (str): Название меню, которое нужно отрисовать.
+	    menu_tree (List): Структура дерева меню.
 
 	Returns:
-	    str: HTML-код для отображения меню.
-
-	Example:
-	    {% draw_menu 'main_menu' %}
-
-	Note:
-	    Этот template tag извлекает структуру меню из базы данных и формирует HTML-код для отображения меню с заданным
-	    названием. Внутри меню каждый пункт представлен в виде ссылки на соответствующий URL. Результат считается безопасным
-	    (safe) HTML-текстом и может быть использован в шаблонах.
+	    str: HTML код меню.
 	"""
+	def render_menu_item(node: Dict) -> str:
+		item = node['item']
 
-	# Извлекаем структуру меню из БД по имени меню
-	menu_items = MenuItem.objects.filter(menu_name=menu_name).order_by('position')
+		# Определяем, является ли пункт активным
+		active_class = 'active' if node['is_active'] else ''
 
-	# Формируем HTML для меню
-	menu_html = '<ul>'
-	for item in menu_items:
-		menu_html += f'<li> <a href="{item.url}">{item.name}</a></li>'
-	menu_html += '</ul>'
+		# Формируем HTML для дочерних пунктов меню, если они есть.
+		children_html = ''.join([render_menu_item(child) for child in node['children']])
+		children_html_safe = mark_safe(children_html)
+
+		if children_html:
+			return format_html(
+				'<li class="{}"><a href="{}">{}</a><ul>{}</ul></li>',
+				active_class,
+				item.url,
+				item.name,
+				children_html_safe
+			)
+		else:
+			return format_html(
+				'<li class="{}"><a href="{}">{}</a></li>',
+				active_class,
+				item.url,
+				item.name
+			)
+
+	menu_html = ''.join([render_menu_item(node) for node in menu_tree])
 
 	# Возвращаем HTML как безопасный (safe) текст
-	return mark_safe(menu_html)
+	return format_html('<ul>{}</ul>', mark_safe(menu_html))
